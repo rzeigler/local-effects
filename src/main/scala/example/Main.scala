@@ -20,6 +20,14 @@ object FindDivisibleBy {
     } yield result
 }
 
+object EnclosingOp {
+  def go[F[_]: Monad, G[_]](getStart: F[Int])(implicit ls: LocalState[F, G, Int]): F[Int] = 
+    for {
+      start <- getStart
+      result <- LocalState[F, G, Int].localState(start)(implicit state => FindDivisibleBy.find(137))
+    } yield result
+}
+
 trait LocalState[F[_], G[_], S] {
   def localState[A](initial: S)(runState: MonadState[G, S] => G[A]): F[A]
 }
@@ -51,11 +59,11 @@ object Main extends IOApp {
   import Instances._
   def run(args: List[String]): IO[ExitCode] = {
     for {
-      ioRes <- LocalState[IO, IO, Int].localState(138)(implicit state => FindDivisibleBy.find[IO](137))
+      ioRes <- EnclosingOp.go(IO(1))
       _ <- putStrLn(s"IO Result: $ioRes")
       _ <- {
         type M[A] = StateT[Eval, Int, A]
-        val res = LocalState[Eval, M, Int].localState(138)(implicit state => FindDivisibleBy.find[M](137)).value
+        val res = EnclosingOp.go[Eval, StateT[Eval, Int, ?]](Eval.now(1)).value
         putStrLn(s"StateT Result: $res")
       }
     } yield ExitCode.Success
